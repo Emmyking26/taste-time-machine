@@ -1,0 +1,30 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useExperience } from "@/components/ExperienceProvider";
+import type { CaregiverReaction } from "@/lib/agent";
+import { WhyThis } from "@/components/WhyThis";
+
+const CHOICES: Array<{ reaction: CaregiverReaction; icon: string; label: string }> = [
+  { reaction: "lit_up", icon: "♥", label: "Lit up" }, { reaction: "calm", icon: "—", label: "Calm" }, { reaction: "engaged", icon: "•", label: "Engaged" }, { reaction: "no_response", icon: "○", label: "No clear response" }, { reaction: "agitated", icon: "!", label: "Became agitated" },
+];
+
+export default function SessionPlayPage() {
+  const router = useRouter();
+  const { session, itemIndex, busy, error, agitatedSkip, observations, recordReaction, advanceItem, stopSession } = useExperience();
+  const [begun, setBegun] = useState(false);
+  const item = session?.items[itemIndex];
+  const recorded = item ? observations.find((entry) => entry.sessionItemId === item.id) : undefined;
+  useEffect(() => { if (!session) { router.replace("/session"); return; } if (itemIndex >= session.items.length) router.replace("/session/complete"); }, [itemIndex, router, session]);
+  if (!session || !item) return null;
+  const number = String(itemIndex + 1).padStart(2, "0");
+  return (
+    <main id="main" className="grid min-h-screen grid-rows-[auto_1fr_auto] gap-[30px] bg-[#fbfdff] px-[5vw] py-7 pb-[58px] max-[540px]:px-5"><div className="flex items-center justify-between gap-6"><span className="text-[.72rem] font-extrabold uppercase tracking-[.12em] text-[#687b8d]">Session {number} / {String(session.items.length).padStart(2, "0")}</span><button className="rounded-full border border-[#f0d4d8] bg-[#fff4f5] px-[22px] py-3 text-[#bd5d68]" type="button" onClick={() => { stopSession(); router.push("/session/complete"); }}>Stop session</button></div>
+      <section className="grid items-center gap-[8vw] py-[35px] lg:grid-cols-[1fr_.7fr] max-[860px]:grid-cols-1 max-[860px]:gap-[42px]"><div className="max-w-[640px]"><p className="mb-[13px] text-[.68rem] font-extrabold uppercase tracking-[.13em] text-[#3f176f]">{item.categoryLabel} · {item.eraHint ?? "an adjacent thread"}</p><h1 className="m-0 max-w-[8ch] font-[family-name:var(--font-sans)] text-[clamp(4rem,10vw,9.2rem)] font-semibold leading-none tracking-[-.05em]">{item.title}</h1>{item.year ? <p className="text-[.9rem] text-[#687b8d]">{item.year}</p> : null}<div className="my-[27px] h-0.5 w-[90px] bg-[#9adcf5]" /><p className="mb-[13px] text-[.68rem] font-extrabold uppercase tracking-[.13em] text-[#3f176f]">Why this?</p><p className="max-w-[35rem] text-base leading-[1.65] text-[#687b8d]">{item.whyBody}</p><WhyThis label={item.whyLabel} body={item.whyBody} />{!begun ? <div className="mt-[30px] flex flex-wrap items-center gap-[13px]"><button className="inline-flex min-h-[54px] items-center gap-[9px] rounded-full bg-[#050505] px-5 py-[6px] text-[.82rem] font-semibold text-white shadow-[0_12px_25px_rgba(0,0,0,.13)] hover:bg-[#2b1740]" type="button" onClick={() => setBegun(true)}>Explore this memory ↗</button></div> : null}</div>
+        <div className={`flex min-h-[520px] flex-col justify-between rounded-[28px] p-[30px] text-[#3f176f] shadow-[0_20px_60px_rgba(85,37,144,.15)] max-[860px]:min-h-[420px] ${item.type === "film" || item.type === "tv" ? "bg-[linear-gradient(145deg,#f6efff,#b7a1e5)]" : item.type === "conversation" ? "bg-[linear-gradient(145deg,#f6efff,#c5a5ed)]" : "bg-[linear-gradient(145deg,#f4edff,#c29be9)]"}`} data-type={item.type} aria-label={`${item.categoryLabel}: ${item.title}`}><span className="text-[.68rem] font-extrabold uppercase tracking-[.13em]">{item.categoryLabel}</span><span className="max-w-[8ch] text-[3.2rem] font-bold leading-[.95] tracking-[-.07em]">{item.title}</span></div>
+      </section>
+      {begun ? <section className="border-t border-[#dce8f0] pt-6"><p className="mb-[13px] text-[.68rem] font-extrabold uppercase tracking-[.13em] text-[#3f176f]">A small observation</p><h2 className="mb-[18px] max-w-none font-[family-name:var(--font-sans)] text-[2.1rem] font-semibold leading-none tracking-[-.05em]">How did they seem?</h2><div className="flex flex-wrap gap-[9px]" role="group" aria-label="How did they seem?">{CHOICES.map((choice) => <button key={choice.reaction} type="button" className={`inline-flex min-h-[58px] items-center gap-[9px] rounded-[14px] border border-[#cfe2ec] bg-white px-4 py-[10px] font-bold text-[#172433] hover:border-[#6f2dbd] hover:bg-[#6f2dbd] hover:text-white max-[540px]:flex-[1_1_140px] max-[540px]:justify-start ${recorded?.reaction === choice.reaction ? "border-[#6f2dbd] bg-[#6f2dbd] text-white" : ""}`} aria-pressed={recorded?.reaction === choice.reaction} disabled={busy} onClick={() => { void recordReaction(choice.reaction).then(() => { if (choice.reaction !== "agitated") window.setTimeout(() => { if (itemIndex + 1 >= session.items.length) router.push("/session/complete"); else { setBegun(false); advanceItem(); } }, 250); }); }}><span aria-hidden="true">{choice.icon}</span>{choice.label}</button>)}</div>{agitatedSkip ? <div className="mt-[18px] max-w-[520px] rounded-r-[14px] border-l-2 border-[#6f2dbd] bg-[#f2eaff] px-[21px] py-[19px]"><p className="mb-2"><strong>That&apos;s okay. We&apos;ll skip this one.</strong></p><p className="mb-2 text-[.9rem] text-[#687b8d]">There&apos;s no need to continue with something that felt unsettled.</p><button className="inline-flex min-h-[54px] items-center gap-[9px] rounded-full bg-[#050505] px-5 py-[6px] text-[.82rem] font-semibold text-white shadow-[0_12px_25px_rgba(0,0,0,.13)] hover:bg-[#2b1740]" type="button" onClick={() => { if (itemIndex + 1 >= session.items.length) router.push("/session/complete"); else { setBegun(false); advanceItem(); } }}>Continue gently</button></div> : null}{error ? <p className="border-l-2 border-[#bd5d68] bg-[#fff2f4] px-4 py-[13px] text-[#bd5d68]">{error}</p> : null}</section> : <div />}
+    </main>
+  );
+}
